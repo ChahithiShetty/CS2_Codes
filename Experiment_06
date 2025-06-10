@@ -1,0 +1,57 @@
+**********EXPERIMENT 06**********
+
+EbN0_dB = 0:2:24;
+EbN0 = 10.^(EbN0_dB/10);
+
+M_PSK = [2, 4, 8, 16, 32];
+M_PAM = [2, 4, 8, 16, 32];
+M_QAM = [4, 16, 64, 256];
+M_FSK = [2, 4, 8, 16, 32];
+
+% Initialize SER matrices
+P_SER_PSK = zeros(length(M_PSK), length(EbN0));
+P_SER_PAM = zeros(length(M_PAM), length(EbN0));
+P_SER_QAM = zeros(length(M_QAM), length(EbN0));
+P_SER_FSK_Co = zeros(length(M_FSK), length(EbN0));
+P_SER_FSK_NonCo = zeros(length(M_FSK), length(EbN0));
+
+% Calculate SER for each modulation type
+for i = 1:length(M_PSK)
+    P_SER_PSK(i,:) = 2 * qfunc(sqrt(2 * EbN0 .* sin(pi / M_PSK(i))));
+end
+
+for i = 1:length(M_PAM)
+    P_SER_PAM(i,:) = 2 * (M_PAM(i)-1)/M_PAM(i) * qfunc(sqrt(6 * log2(M_PAM(i)) / (M_PAM(i)^2 - 1) .* EbN0));
+end
+
+for i = 1:length(M_QAM)
+    P_SER_QAM(i,:) = 4 * (1 - 1/sqrt(M_QAM(i))) * qfunc(sqrt(3 * log2(M_QAM(i)) / (M_QAM(i)-1) .* EbN0));
+end
+
+for i = 1:length(M_FSK)
+    P_SER_FSK_Co(i,:) = qfunc(sqrt(2 * EbN0 * log2(M_FSK(i)) / (M_FSK(i)-1)));
+    P_SER_FSK_NonCo(i,:) = exp(-EbN0/2) .* (((1 + EbN0).^(M_FSK(i)-1) - 1) / (M_FSK(i) - 1));
+end
+
+% Plotting
+modulation_title = {'M-PSK', 'M-PAM', 'M-QAM', 'M-FSK Coherent', 'M-FSK Non-Coherent'};
+modulation_data = {P_SER_PSK, P_SER_PAM, P_SER_QAM, P_SER_FSK_Co, P_SER_FSK_NonCo};
+modulation_M = {M_PSK, M_PAM, M_QAM, M_FSK, M_FSK};
+
+figure;
+for k = 1:5
+    subplot(2,3,k);
+    data = modulation_data{k};
+    M = modulation_M{k};
+    for i = 1:size(data,1)
+        semilogy(EbN0_dB, data(i,:), 'DisplayName', ['M = ' num2str(M(i))]);
+        hold on;
+    end
+    title(modulation_title{k});
+    xlabel('Eb/N0 (dB)');
+    ylabel('Symbol Error Rate (SER)');
+    legend show;
+    grid on;
+end
+
+
