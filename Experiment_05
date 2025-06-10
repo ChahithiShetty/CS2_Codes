@@ -1,0 +1,48 @@
+*********EXPERIMENT 05**********
+
+M = 16;
+numSymbols = 1e5;
+EbN0_db = 0:2:20;
+EbN0 = EbN0_db - 10*log10(log2(M));
+numSNR = length(EbN0_db);
+SER = zeros(1, numSNR);
+
+gainImabalance = 0.1;
+phaseMismatch = 0.05;
+dcOffsetI = 0.05;
+dcOffsetQ = 0.05;
+
+for i = 1:numSNR
+    dataSymbols = randi([0 M-1], numSymbols, 1);
+    modulatedSignal = qammod(dataSymbols, M, 'UnitAveragePower', true);
+    
+    % Apply impairments
+    recievedSignal = (1 + gainImabalance)real(modulatedSignal) + 1i(1 - gainImabalance)*imag(modulatedSignal);
+    recievedSignal = recievedSignal .* exp(1i * phaseMismatch) + dcOffsetI + 1i * dcOffsetQ;
+    
+    % Add AWGN and demodulate
+    recievedSignal = awgn(recievedSignal, EbN0_db(i), 'measured');
+    demodulatedSignal = qamdemod(recievedSignal, M, 'UnitAveragePower', true);
+    
+    % Calculate SER
+    SER(i) = sum(dataSymbols ~= demodulatedSignal) / numSymbols;
+end
+
+% Plotting
+semilogy(EbN0, SER, 'b-o');
+title('SER vs E_b/N_0 for 16-QAM with Receiver Impairments');
+xlabel('Eb/N0 in dB'); ylabel('Symbol Error Rate (SER)'); grid on;
+
+fprintf('SNR(db)   SER\n-------   ------\n');
+fprintf('%8.2f   %e\n', [EbN0_db; SER]);
+
+% Plot constellation diagram
+scatterplot(recievedSignal);
+title('Received Signal Constellation with Receiver Impairments (SNR = 20 dB)');
+grid on;
+
+
+
+
+
+
