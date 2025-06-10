@@ -1,0 +1,98 @@
+**********EXPERIMENT 07**********
+
+% DSSS Parameters
+M = 2; numBits = 1e3; chipRate = 10; snr = 10; fs = 1000;
+
+% Generate data & modulate using BPSK
+dataBits = randi([0 1], numBits, 1);
+modulatedSignal = 2*dataBits - 1;
+
+% PN sequence & spreading
+pnSeq = 2*randi([0 1], numBits*chipRate, 1) - 1;
+spreadSignal = repelem(modulatedSignal, chipRate) .* pnSeq;
+
+% AWGN channel
+recSignal = awgn(spreadSignal, snr, 'measured');
+
+% Despread & demodulate
+despread = recSignal .* pnSeq;
+despreadBits = sum(reshape(despread, chipRate, numBits), 1)' / chipRate;
+receivedBits = despreadBits > 0;
+
+% BER
+BER_DSSS = mean(dataBits ~= receivedBits);
+
+% Spectra
+n = length(spreadSignal); f = (-n/2:n/2-1)*(fs/n);
+spectra = @(x) abs(fftshift(fft(x,n)));
+signals = {modulatedSignal, pnSeq, spreadSignal, recSignal, despread, despreadBits};
+titles = {'Message', 'PN Code', 'Spread', 'Received', 'Despread', 'Demodulated (Before Decision)'};
+
+% Plot
+figure;
+for i = 1:6
+    subplot(3,2,i);
+    plot(f, spectra(signals{i}));
+    title([titles{i} ' Spectrum']); xlabel('Frequency (Hz)'); ylabel('Magnitude'); grid on;
+end
+
+
+
+
+
+
+
+
+% FHSS Parameters
+numBits = 20; numHops = 6; snr = 10; fs = 20e3; hopDur = 1e-3;
+hopFreqs = (1:numHops) * 1e3; t = (0:1/fs:hopDur-1/fs)';
+
+% Generate and modulate
+dataBits = randi([0 1], numBits, 1);
+bpskSignal = repelem(2*dataBits - 1, length(t));
+
+% FHSS modulation
+fhssSignal = []; hopSignal = [];
+for i = 1:numBits
+    freq = hopFreqs(mod(i-1, numHops)+1);
+    carrier = cos(2*pi*freq*t);
+    hopSignal = [hopSignal; carrier];
+    fhssSignal = [fhssSignal; bpskSignal((i-1)length(t)+1:i*length(t)) . carrier];
+end
+
+% Channel and demodulation
+recSignal = awgn(fhssSignal, snr, 'measured');
+demodSignal = []; receivedBits = zeros(numBits,1);
+for i = 1:numBits
+    freq = hopFreqs(mod(i-1, numHops)+1);
+    carrier = cos(2*pi*freq*t);
+    seg = recSignal((i-1)*length(t)+1:i*length(t));
+    d = seg .* carrier;
+    demodSignal = [demodSignal; d];
+    receivedBits(i) = sum(d) > 0;
+end
+
+% BER
+BER_FHSS = mean(dataBits ~= receivedBits);
+fprintf('FHSS BER: %e\n', BER_FHSS);
+
+% Plot
+figure;
+titles = {'Original Bits', 'BPSK Rectangular', 'Hop Carrier Signal', ...
+          'Transmitted FHSS Signal', 'Demodulated Signal', 'Received Bits'};
+plots = {dataBits, bpskSignal, hopSignal, fhssSignal, demodSignal, receivedBits};
+for i = 1:6
+    subplot(3,2,i);
+    if i==1 || i==6
+        stem(plots{i}, 'filled');
+    else
+        plot(plots{i});
+    end
+    title(titles{i}); xlabel('Index'); ylabel('Amplitude'); grid on;
+end
+
+
+
+
+
+
